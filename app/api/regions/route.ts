@@ -21,8 +21,7 @@ export async function GET() {
     return Response.json(JSON.parse(cached))
   }
 
-  const response = { success: true, data: MOCK_REGIONS }
-  await cache.set(CACHE_KEYS.regions, JSON.stringify(response), { ex: CACHE_TTL.regions })
+  await cache.set(CACHE_KEYS.regions, JSON.stringify({ success: true, data: MOCK_REGIONS }), { ex: CACHE_TTL.regions })
 
   return success(MOCK_REGIONS)
 }

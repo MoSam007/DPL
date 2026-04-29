@@ -52,9 +52,11 @@ export async function POST(request: NextRequest) {
       ],
     }
 
+    const uploadId = `upload_${Date.now()}`
     return success({
-      id: `upload_${Date.now()}`,
+      id: uploadId,
       fileName: file.name,
+      fileUrl: `/uploads/${uploadId}/${file.name}`,
       fileSize: file.size,
       status: "completed",
       cropType,

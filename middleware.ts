@@ -29,6 +29,12 @@ function checkRateLimit(key: string): { allowed: boolean; remaining: number } {
   return { allowed: true, remaining: API_RATE_LIMIT - entry.count }
 }
 
+function applySecurityHeaders(response: NextResponse): void {
+  response.headers.set("X-Frame-Options", "DENY")
+  response.headers.set("X-Content-Type-Options", "nosniff")
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -52,13 +58,12 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next()
     response.headers.set("X-RateLimit-Remaining", String(remaining))
     response.headers.set("X-RateLimit-Limit", String(API_RATE_LIMIT))
+    applySecurityHeaders(response)
     return response
   }
 
   const response = NextResponse.next()
-  response.headers.set("X-Frame-Options", "DENY")
-  response.headers.set("X-Content-Type-Options", "nosniff")
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
+  applySecurityHeaders(response)
   return response
 }
 

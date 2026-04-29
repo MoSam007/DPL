@@ -32,8 +32,7 @@ export async function GET(request: NextRequest) {
       return error("NOT_FOUND", "Region not found", 404)
     }
 
-    const response = { success: true, data: weather }
-    await cache.set(cacheKey, JSON.stringify(response), { ex: CACHE_TTL.weather })
+    await cache.set(cacheKey, JSON.stringify({ success: true, data: weather }), { ex: CACHE_TTL.weather })
     return success(weather)
   }
 

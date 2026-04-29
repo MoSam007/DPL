@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server"
 import { predictionQuerySchema } from "@/lib/validators"
-import { success, error, parseSearchParams } from "@/lib/api-utils"
+import { paginated, error, parseSearchParams } from "@/lib/api-utils"
 import { cache, CACHE_KEYS, CACHE_TTL } from "@/lib/redis"
 import type { Prediction } from "@/lib/types"
 
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
   }
 
   const now = new Date()
-  const days = parseInt(timeframe)
+  const days = parseInt(timeframe.replace("d", ""), 10)
   const cutoff = new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
   filtered = filtered.filter((p) => new Date(p.predictedOnset) <= cutoff)
 
@@ -125,18 +125,11 @@ export async function GET(request: NextRequest) {
   const start = (page - 1) * pageSize
   const paged = filtered.slice(start, start + pageSize)
 
-  const response = {
-    success: true,
-    data: {
-      data: paged,
-      total,
-      page,
-      pageSize,
-      totalPages: Math.ceil(total / pageSize),
-    },
-  }
+  await cache.set(
+    cacheKey,
+    JSON.stringify({ success: true, data: { data: paged, total, page, pageSize, totalPages: Math.ceil(total / pageSize) } }),
+    { ex: CACHE_TTL.predictions }
+  )
 
-  await cache.set(cacheKey, JSON.stringify(response), { ex: CACHE_TTL.predictions })
-
-  return Response.json(response)
+  return paginated(paged, total, page, pageSize)
 }
