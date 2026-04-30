@@ -1,5 +1,6 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { ArrowRight, TrendingDown, TrendingUp, Minus } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import type { Prediction, RiskLevel } from "@/lib/types"
+import type { Prediction, RiskLevel, PaginatedResponse } from "@/lib/types"
 
 function RiskBadge({ risk }: { risk: RiskLevel }) {
   return (
@@ -32,11 +34,41 @@ function TrendIcon({ trend }: { trend: "up" | "down" | "stable" }) {
   return <Minus className="size-3.5 text-muted-foreground" />
 }
 
-interface PredictionsPanelProps {
-  predictions: Prediction[]
+function PredictionSkeleton() {
+  return (
+    <div className="rounded-xl border p-3.5 space-y-2.5">
+      <div className="flex items-start justify-between gap-2">
+        <div className="space-y-1.5 flex-1">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-3 w-20" />
+        </div>
+        <Skeleton className="h-5 w-14 rounded-full" />
+      </div>
+      <Skeleton className="h-1.5 w-full rounded-full" />
+      <Skeleton className="h-3 w-full" />
+    </div>
+  )
 }
 
-export function PredictionsPanel({ predictions }: PredictionsPanelProps) {
+interface PredictionsPanelProps {
+  predictions?: Prediction[]
+}
+
+export function PredictionsPanel({ predictions: initialData }: PredictionsPanelProps) {
+  const [predictions, setPredictions] = React.useState<Prediction[]>(initialData ?? [])
+  const [loading, setLoading] = React.useState(initialData === undefined)
+
+  React.useEffect(() => {
+    if (initialData !== undefined) return
+    fetch("/api/predictions?pageSize=5&sortBy=risk")
+      .then((r) => r.json())
+      .then((body) => {
+        if (body.success) setPredictions((body.data as PaginatedResponse<Prediction>).data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [initialData])
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -53,7 +85,11 @@ export function PredictionsPanel({ predictions }: PredictionsPanelProps) {
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[340px] pr-3">
-          {predictions.length === 0 ? (
+          {loading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => <PredictionSkeleton key={i} />)}
+            </div>
+          ) : predictions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12 text-center">
               <p className="text-sm text-muted-foreground">No predictions yet.</p>
               <p className="text-xs text-muted-foreground mt-1">

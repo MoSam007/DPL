@@ -1,12 +1,14 @@
 "use client"
 
+import * as React from "react"
 import Link from "next/link"
 import { AlertCircle, AlertTriangle, Info, Clock, ArrowRight, CheckCircle2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import type { Alert, AlertSeverity } from "@/lib/types"
+import type { Alert, AlertSeverity, PaginatedResponse } from "@/lib/types"
 
 function relativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
@@ -63,11 +65,41 @@ function AlertCard({ alert }: { alert: Alert }) {
   )
 }
 
-interface AlertsSectionProps {
-  alerts: Alert[]
+function AlertSkeleton() {
+  return (
+    <div className="rounded-xl border p-3.5 space-y-2">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 flex-1">
+          <Skeleton className="size-4 rounded-full shrink-0" />
+          <Skeleton className="h-4 w-36" />
+        </div>
+        <Skeleton className="h-3 w-16" />
+      </div>
+      <Skeleton className="h-3 w-full ml-6" />
+      <Skeleton className="h-3 w-4/5 ml-6" />
+    </div>
+  )
 }
 
-export function AlertsSection({ alerts }: AlertsSectionProps) {
+interface AlertsSectionProps {
+  alerts?: Alert[]
+}
+
+export function AlertsSection({ alerts: initialData }: AlertsSectionProps) {
+  const [alerts, setAlerts] = React.useState<Alert[]>(initialData ?? [])
+  const [loading, setLoading] = React.useState(initialData === undefined)
+
+  React.useEffect(() => {
+    if (initialData !== undefined) return
+    fetch("/api/alerts?pageSize=5")
+      .then((r) => r.json())
+      .then((body) => {
+        if (body.success) setAlerts((body.data as PaginatedResponse<Alert>).data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [initialData])
+
   const criticalCount = alerts.filter((a) => a.severity === "critical").length
 
   return (
@@ -93,7 +125,11 @@ export function AlertsSection({ alerts }: AlertsSectionProps) {
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[340px] pr-3">
-          {alerts.length === 0 ? (
+          {loading ? (
+            <div className="space-y-2.5">
+              {Array.from({ length: 3 }).map((_, i) => <AlertSkeleton key={i} />)}
+            </div>
+          ) : alerts.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full py-12 text-center">
               <p className="text-sm text-muted-foreground">No active alerts.</p>
               <p className="text-xs text-muted-foreground mt-1">All clear across monitored regions.</p>

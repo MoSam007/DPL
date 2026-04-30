@@ -30,19 +30,6 @@ class MemoryCache implements RedisLike {
 }
 
 function createCache(): RedisLike {
-  if (process.env.REDIS_URL) {
-    try {
-      // Dynamic import to avoid build errors when ioredis isn't installed
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Redis = require("ioredis")
-      return new Redis(process.env.REDIS_URL, {
-        maxRetriesPerRequest: 3,
-        lazyConnect: true,
-      })
-    } catch {
-      console.warn("ioredis not installed, falling back to in-memory cache")
-    }
-  }
   return new MemoryCache()
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { Layers, MapPin, ZoomIn, ZoomOut, Maximize2 } from "lucide-react"
+import { Layers, MapPin, ZoomIn, ZoomOut, Maximize2, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import {
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { cn } from "@/lib/utils"
-import type { Prediction } from "@/lib/types"
+import type { Prediction, PaginatedResponse } from "@/lib/types"
 
 // Fixed visual positions for each region (the map is a stylised, non-geographic canvas)
 const REGION_POSITIONS: Record<string, { x: number; y: number; size: number }> = {
@@ -52,12 +52,25 @@ const regionOptions = [
 ]
 
 interface MapSectionProps {
-  predictions: Prediction[]
+  predictions?: Prediction[]
 }
 
-export function MapSection({ predictions }: MapSectionProps) {
+export function MapSection({ predictions: initialData }: MapSectionProps) {
+  const [predictions, setPredictions] = React.useState<Prediction[]>(initialData ?? [])
+  const [loading, setLoading] = React.useState(initialData === undefined)
   const [selectedRisk, setSelectedRisk] = React.useState<string[]>(["all"])
   const [hoveredZone, setHoveredZone] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (initialData !== undefined) return
+    fetch("/api/predictions?pageSize=50")
+      .then((r) => r.json())
+      .then((body) => {
+        if (body.success) setPredictions((body.data as PaginatedResponse<Prediction>).data)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [initialData])
 
   // Build zones: group predictions by region, take the highest risk per region
   const riskZones: RiskZone[] = React.useMemo(() => {
@@ -162,6 +175,13 @@ export function MapSection({ predictions }: MapSectionProps) {
             }}
           />
           <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.03] via-transparent to-primary/[0.06]" />
+
+          {loading && (
+            <div className="absolute inset-0 flex items-center justify-center gap-2 z-10">
+              <Loader2 className="size-5 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading map…</span>
+            </div>
+          )}
 
           <div className="absolute inset-4">
             {filteredZones.map((zone) => (
