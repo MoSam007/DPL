@@ -35,7 +35,7 @@ function applySecurityHeaders(response: NextResponse): void {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin")
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith("/api/") && !PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {

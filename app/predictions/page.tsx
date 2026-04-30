@@ -2,190 +2,42 @@
 
 import * as React from "react"
 import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  ArrowRight,
-  Calendar,
-  Filter,
-  Download,
-  RefreshCw,
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Target,
-  Sparkles,
-  ChevronDown,
-  BarChart3,
-  Activity,
+  TrendingUp, TrendingDown, Minus, ArrowRight, Calendar, Filter,
+  Download, RefreshCw, AlertTriangle, CheckCircle2, Clock,
+  Target, Sparkles, ChevronDown, BarChart3, Loader2,
 } from "lucide-react"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
+import type { Prediction, RiskLevel, PaginatedResponse } from "@/lib/types"
 
-interface Prediction {
-  id: string
-  region: string
-  disease: string
-  risk: "low" | "medium" | "high"
-  confidence: number
-  trend: "up" | "down" | "stable"
-  predictedDate: string
-  daysUntil: number
-  action: string
-  factors: string[]
-  historicalAccuracy: number
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function daysUntil(isoDate: string): number {
+  return Math.max(0, Math.ceil((new Date(isoDate).getTime() - Date.now()) / 86_400_000))
 }
 
-const predictions: Prediction[] = [
-  {
-    id: "1",
-    region: "Northern Plains",
-    disease: "Late Blight",
-    risk: "high",
-    confidence: 87,
-    trend: "up",
-    predictedDate: "Apr 26, 2026",
-    daysUntil: 2,
-    action: "Apply fungicide within 48hrs",
-    factors: ["High humidity (85%)", "Optimal temperature (18-22°C)", "Recent rainfall"],
-    historicalAccuracy: 92,
-  },
-  {
-    id: "2",
-    region: "Central Valley",
-    disease: "Powdery Mildew",
-    risk: "medium",
-    confidence: 72,
-    trend: "stable",
-    predictedDate: "Apr 28, 2026",
-    daysUntil: 4,
-    action: "Monitor closely, prepare treatment",
-    factors: ["Moderate humidity", "Dry conditions expected", "Previous outbreaks"],
-    historicalAccuracy: 85,
-  },
-  {
-    id: "3",
-    region: "Eastern Hills",
-    disease: "Rust",
-    risk: "low",
-    confidence: 65,
-    trend: "down",
-    predictedDate: "May 2, 2026",
-    daysUntil: 8,
-    action: "Continue regular monitoring",
-    factors: ["Low humidity", "Unfavorable conditions", "Resistant varieties"],
-    historicalAccuracy: 88,
-  },
-  {
-    id: "4",
-    region: "Southern Basin",
-    disease: "Bacterial Wilt",
-    risk: "high",
-    confidence: 91,
-    trend: "up",
-    predictedDate: "Apr 25, 2026",
-    daysUntil: 1,
-    action: "Isolate affected plants immediately",
-    factors: ["Waterlogged soil", "High temperature", "Susceptible crop variety"],
-    historicalAccuracy: 94,
-  },
-  {
-    id: "5",
-    region: "Western Ridge",
-    disease: "Leaf Spot",
-    risk: "medium",
-    confidence: 68,
-    trend: "down",
-    predictedDate: "Apr 30, 2026",
-    daysUntil: 6,
-    action: "Apply preventive measures",
-    factors: ["Variable humidity", "Wind patterns", "Crop density"],
-    historicalAccuracy: 82,
-  },
-  {
-    id: "6",
-    region: "River Delta",
-    disease: "Sheath Blight",
-    risk: "high",
-    confidence: 89,
-    trend: "up",
-    predictedDate: "Apr 26, 2026",
-    daysUntil: 2,
-    action: "Reduce nitrogen fertilization, apply fungicide",
-    factors: ["High humidity (92%)", "Dense canopy", "Previous infection history"],
-    historicalAccuracy: 91,
-  },
-  {
-    id: "7",
-    region: "Mountain Foothills",
-    disease: "Anthracnose",
-    risk: "medium",
-    confidence: 74,
-    trend: "stable",
-    predictedDate: "Apr 29, 2026",
-    daysUntil: 5,
-    action: "Improve air circulation, monitor",
-    factors: ["Moderate rainfall", "Warm nights", "Fruit development stage"],
-    historicalAccuracy: 79,
-  },
-  {
-    id: "8",
-    region: "Coastal Region",
-    disease: "Brown Spot",
-    risk: "low",
-    confidence: 58,
-    trend: "down",
-    predictedDate: "May 5, 2026",
-    daysUntil: 11,
-    action: "Standard monitoring protocol",
-    factors: ["Improving conditions", "Wind exposure", "Salt spray"],
-    historicalAccuracy: 86,
-  },
-]
-
-const timeframes = [
-  { value: "7d", label: "Next 7 Days" },
-  { value: "14d", label: "Next 14 Days" },
-  { value: "30d", label: "Next 30 Days" },
-]
-
-const diseaseTypes = [
-  { value: "all", label: "All Diseases" },
-  { value: "fungal", label: "Fungal" },
-  { value: "bacterial", label: "Bacterial" },
-  { value: "viral", label: "Viral" },
-]
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+}
 
 function TrendIcon({ trend }: { trend: "up" | "down" | "stable" }) {
-  if (trend === "up") {
-    return <TrendingUp className="size-4 text-destructive" />
-  }
-  if (trend === "down") {
-    return <TrendingDown className="size-4 text-success" />
-  }
+  if (trend === "up") return <TrendingUp className="size-4 text-destructive" />
+  if (trend === "down") return <TrendingDown className="size-4 text-success" />
   return <Minus className="size-4 text-muted-foreground" />
 }
 
-function RiskBadge({ risk }: { risk: "low" | "medium" | "high" }) {
+function RiskBadge({ risk }: { risk: RiskLevel }) {
   return (
     <Badge
       variant="outline"
@@ -193,7 +45,7 @@ function RiskBadge({ risk }: { risk: "low" | "medium" | "high" }) {
         "capitalize font-medium",
         risk === "low" && "border-success/50 bg-success/10 text-success",
         risk === "medium" && "border-warning/50 bg-warning/10 text-warning-foreground",
-        risk === "high" && "border-destructive/50 bg-destructive/10 text-destructive"
+        (risk === "high" || risk === "critical") && "border-destructive/50 bg-destructive/10 text-destructive"
       )}
     >
       {risk}
@@ -202,75 +54,88 @@ function RiskBadge({ risk }: { risk: "low" | "medium" | "high" }) {
 }
 
 function UrgencyBadge({ days }: { days: number }) {
-  if (days <= 2) {
-    return (
-      <Badge variant="destructive" className="gap-1">
-        <AlertTriangle className="size-3" />
-        Urgent
-      </Badge>
-    )
-  }
-  if (days <= 5) {
-    return (
-      <Badge variant="outline" className="gap-1 border-warning/50 bg-warning/10 text-warning-foreground">
-        <Clock className="size-3" />
-        Soon
-      </Badge>
-    )
-  }
-  return (
-    <Badge variant="outline" className="gap-1 text-muted-foreground">
-      <Calendar className="size-3" />
-      Scheduled
-    </Badge>
-  )
+  if (days <= 2) return <Badge variant="destructive" className="gap-1"><AlertTriangle className="size-3" />Urgent</Badge>
+  if (days <= 5) return <Badge variant="outline" className="gap-1 border-warning/50 bg-warning/10 text-warning-foreground"><Clock className="size-3" />Soon</Badge>
+  return <Badge variant="outline" className="gap-1 text-muted-foreground"><Calendar className="size-3" />Scheduled</Badge>
 }
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 
 export default function PredictionsPage() {
   const [timeframe, setTimeframe] = React.useState("7d")
   const [diseaseFilter, setDiseaseFilter] = React.useState("all")
   const [expandedId, setExpandedId] = React.useState<string | null>(null)
+  const [predictions, setPredictions] = React.useState<Prediction[]>([])
+  const [loading, setLoading] = React.useState(true)
+  const [refreshing, setRefreshing] = React.useState(false)
+
+  const load = React.useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    else setLoading(true)
+
+    try {
+      const params = new URLSearchParams({
+        pageSize: "50",
+        timeframe,
+        ...(diseaseFilter !== "all" && { diseaseType: diseaseFilter }),
+        sortBy: "onset",
+      })
+      const res = await fetch(`/api/predictions?${params}`)
+      const body = await res.json()
+      if (body.success) setPredictions((body.data as PaginatedResponse<Prediction>).data)
+    } catch {
+      // leave existing data in place
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [timeframe, diseaseFilter])
+
+  React.useEffect(() => { load() }, [load])
+
+  const sorted = [...predictions].sort((a, b) => daysUntil(a.predictedOnset) - daysUntil(b.predictedOnset))
+  const urgent = sorted.filter((p) => daysUntil(p.predictedOnset) <= 2)
+  const upcoming = sorted.filter((p) => daysUntil(p.predictedOnset) > 2)
 
   const stats = {
     total: predictions.length,
-    high: predictions.filter((p) => p.risk === "high").length,
-    urgent: predictions.filter((p) => p.daysUntil <= 2).length,
-    avgConfidence: Math.round(predictions.reduce((acc, p) => acc + p.confidence, 0) / predictions.length),
+    high: predictions.filter((p) => p.riskLevel === "high" || p.riskLevel === "critical").length,
+    urgentCount: urgent.length,
+    avgConf: predictions.length
+      ? Math.round(predictions.reduce((s, p) => s + p.confidence, 0) / predictions.length)
+      : 0,
   }
-
-  const sortedPredictions = [...predictions].sort((a, b) => a.daysUntil - b.daysUntil)
 
   return (
     <DashboardLayout>
       <div className="flex flex-col gap-6">
-        {/* Page Header */}
+        {/* Header */}
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-balance">Disease Predictions</h1>
-            <p className="text-muted-foreground">
-              AI-powered disease outbreak forecasts and recommended actions
-            </p>
+            <h1 className="text-2xl font-semibold tracking-tight">Disease Predictions</h1>
+            <p className="text-muted-foreground">AI-powered disease outbreak forecasts and recommended actions</p>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <Download className="mr-2 size-4" />
-              Export Report
+            <Button variant="outline" size="sm" disabled={loading || refreshing}>
+              <Download className="mr-2 size-4" />Export Report
             </Button>
-            <Button variant="outline" size="sm">
-              <RefreshCw className="mr-2 size-4" />
-              Refresh
+            <Button variant="outline" size="sm" onClick={() => load(true)} disabled={loading || refreshing}>
+              <RefreshCw className={cn("mr-2 size-4", refreshing && "animate-spin")} />
+              {refreshing ? "Refreshing…" : "Refresh"}
             </Button>
           </div>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Total Predictions</p>
-                  <p className="text-2xl font-bold">{stats.total}</p>
+                  <p className="text-2xl font-bold">{loading ? "—" : stats.total}</p>
                 </div>
                 <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <BarChart3 className="size-5 text-primary" />
@@ -283,7 +148,7 @@ export default function PredictionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">High Risk</p>
-                  <p className="text-2xl font-bold text-destructive">{stats.high}</p>
+                  <p className="text-2xl font-bold text-destructive">{loading ? "—" : stats.high}</p>
                 </div>
                 <div className="size-10 rounded-full bg-destructive/20 flex items-center justify-center">
                   <AlertTriangle className="size-5 text-destructive" />
@@ -296,7 +161,7 @@ export default function PredictionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Urgent (48hrs)</p>
-                  <p className="text-2xl font-bold text-warning-foreground">{stats.urgent}</p>
+                  <p className="text-2xl font-bold text-warning-foreground">{loading ? "—" : stats.urgentCount}</p>
                 </div>
                 <div className="size-10 rounded-full bg-warning/20 flex items-center justify-center">
                   <Clock className="size-5 text-warning" />
@@ -309,7 +174,7 @@ export default function PredictionsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Avg. Confidence</p>
-                  <p className="text-2xl font-bold">{stats.avgConfidence}%</p>
+                  <p className="text-2xl font-bold">{loading ? "—" : `${stats.avgConf}%`}</p>
                 </div>
                 <div className="size-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <Target className="size-5 text-primary" />
@@ -319,45 +184,35 @@ export default function PredictionsPage() {
           </Card>
         </div>
 
-        {/* Model Performance Card */}
+        {/* Model Performance */}
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Sparkles className="size-5 text-primary" />
               <CardTitle className="text-base">AI Model Performance</CardTitle>
             </div>
-            <CardDescription>
-              CropGuard prediction model accuracy over the last 30 days
-            </CardDescription>
+            <CardDescription>LangGraph + Groq prediction model — last 30 days</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Overall Accuracy</span>
-                  <span className="font-medium">89%</span>
+              {[
+                { label: "Overall Accuracy", value: 89, color: "[&>[data-slot=indicator]]:bg-primary" },
+                { label: "High Risk Detection", value: 94, color: "[&>[data-slot=indicator]]:bg-success" },
+                { label: "False Positive Rate", value: 6, color: "[&>[data-slot=indicator]]:bg-destructive" },
+              ].map((m) => (
+                <div key={m.label} className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">{m.label}</span>
+                    <span className="font-medium">{m.value}%</span>
+                  </div>
+                  <Progress value={m.value} className={cn("h-2", m.color)} />
                 </div>
-                <Progress value={89} className="h-2 [&>[data-slot=indicator]]:bg-primary" />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">High Risk Detection</span>
-                  <span className="font-medium">94%</span>
-                </div>
-                <Progress value={94} className="h-2 [&>[data-slot=indicator]]:bg-success" />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">False Positive Rate</span>
-                  <span className="font-medium">6%</span>
-                </div>
-                <Progress value={6} className="h-2 [&>[data-slot=indicator]]:bg-destructive" />
-              </div>
+              ))}
             </div>
           </CardContent>
         </Card>
 
-        {/* Predictions Tabs */}
+        {/* Tabs + Filters */}
         <Tabs defaultValue="all" className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <TabsList>
@@ -372,11 +227,9 @@ export default function PredictionsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {timeframes.map((t) => (
-                    <SelectItem key={t.value} value={t.value}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="7d">Next 7 Days</SelectItem>
+                  <SelectItem value="14d">Next 14 Days</SelectItem>
+                  <SelectItem value="30d">Next 30 Days</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={diseaseFilter} onValueChange={setDiseaseFilter}>
@@ -385,192 +238,212 @@ export default function PredictionsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {diseaseTypes.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.label}
-                    </SelectItem>
-                  ))}
+                  <SelectItem value="all">All Diseases</SelectItem>
+                  <SelectItem value="fungal">Fungal</SelectItem>
+                  <SelectItem value="bacterial">Bacterial</SelectItem>
+                  <SelectItem value="viral">Viral</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <TabsContent value="all" className="space-y-4">
+          {/* Loading / empty state */}
+          {loading && (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="size-6 animate-spin text-primary mr-2" />
+              <span className="text-muted-foreground">Loading predictions…</span>
+            </div>
+          )}
+
+          {!loading && predictions.length === 0 && (
             <Card>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[600px]">
-                  <div className="divide-y">
-                    {sortedPredictions.map((prediction) => (
-                      <Collapsible
-                        key={prediction.id}
-                        open={expandedId === prediction.id}
-                        onOpenChange={(open) => setExpandedId(open ? prediction.id : null)}
-                      >
-                        <div className="p-4 hover:bg-muted/30 transition-colors">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center gap-3">
+                <Sparkles className="size-10 text-muted-foreground/50" />
+                <h3 className="font-medium">No predictions yet</h3>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Click <strong>Refresh</strong> to generate AI forecasts for all regions. This may take up to 30 seconds.
+                </p>
+                <Button onClick={() => load(true)} disabled={refreshing} size="sm">
+                  <RefreshCw className={cn("mr-2 size-4", refreshing && "animate-spin")} />
+                  Generate Predictions
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {!loading && predictions.length > 0 && (
+            <>
+              <TabsContent value="all">
+                <PredictionList items={sorted} expandedId={expandedId} setExpandedId={setExpandedId} />
+              </TabsContent>
+              <TabsContent value="urgent">
+                {urgent.length === 0 ? (
+                  <Card><CardContent className="py-12 text-center text-muted-foreground text-sm">No urgent predictions in this timeframe.</CardContent></Card>
+                ) : (
+                  <Card>
+                    <CardContent className="p-6 space-y-4">
+                      {urgent.map((p) => (
+                        <div key={p.id} className="p-4 rounded-lg border border-destructive/30 bg-destructive/5">
                           <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-medium">{prediction.region}</h3>
-                                <RiskBadge risk={prediction.risk} />
-                                <UrgencyBadge days={prediction.daysUntil} />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <AlertTriangle className="size-4 text-destructive" />
+                                <h3 className="font-medium">{p.region.name}</h3>
+                                <RiskBadge risk={p.riskLevel} />
                               </div>
-                              <p className="text-sm text-muted-foreground">
-                                {prediction.disease} - Predicted: {prediction.predictedDate}
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {p.disease.name} — action required within {daysUntil(p.predictedOnset) * 24} hours
                               </p>
+                              <p className="text-sm font-medium mt-2">{p.action}</p>
                             </div>
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
-                                <div className="flex items-center gap-1 justify-end">
-                                  <span className="text-sm font-medium">{prediction.confidence}%</span>
-                                  <TrendIcon trend={prediction.trend} />
-                                </div>
-                                <p className="text-xs text-muted-foreground">confidence</p>
-                              </div>
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="size-8">
-                                  <ChevronDown
-                                    className={cn(
-                                      "size-4 transition-transform",
-                                      expandedId === prediction.id && "rotate-180"
-                                    )}
-                                  />
-                                </Button>
-                              </CollapsibleTrigger>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-destructive">{daysUntil(p.predictedOnset)}d</p>
+                              <p className="text-xs text-muted-foreground">remaining</p>
                             </div>
                           </div>
-
-                          <CollapsibleContent className="pt-4 space-y-4">
-                            <Separator />
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-3">
-                                <h4 className="text-sm font-medium">Contributing Factors</h4>
-                                <ul className="space-y-2">
-                                  {prediction.factors.map((factor, i) => (
-                                    <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
-                                      <div className="size-1.5 rounded-full bg-primary" />
-                                      {factor}
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                              <div className="space-y-3">
-                                <h4 className="text-sm font-medium">Recommended Action</h4>
-                                <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                                  <p className="text-sm">{prediction.action}</p>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm">
-                                  <CheckCircle2 className="size-4 text-success" />
-                                  <span className="text-muted-foreground">
-                                    Historical accuracy: {prediction.historicalAccuracy}%
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 pt-2">
-                              <Button size="sm">
-                                Take Action
-                                <ArrowRight className="ml-2 size-4" />
-                              </Button>
-                              <Button variant="outline" size="sm">
-                                View Details
-                              </Button>
-                              <Button variant="ghost" size="sm">
-                                Dismiss
-                              </Button>
-                            </div>
-                          </CollapsibleContent>
+                          <div className="flex gap-2 mt-4">
+                            <Button size="sm" className="bg-destructive hover:bg-destructive/90">Take Immediate Action</Button>
+                            <Button variant="outline" size="sm">Contact Expert</Button>
+                          </div>
                         </div>
-                      </Collapsible>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="urgent" className="space-y-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {sortedPredictions
-                    .filter((p) => p.daysUntil <= 2)
-                    .map((prediction) => (
-                      <div
-                        key={prediction.id}
-                        className="p-4 rounded-lg border border-destructive/30 bg-destructive/5"
-                      >
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </TabsContent>
+              <TabsContent value="upcoming">
+                <Card>
+                  <CardContent className="p-6 space-y-4">
+                    {upcoming.map((p) => (
+                      <div key={p.id} className="p-4 rounded-lg border hover:bg-muted/30 transition-colors">
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <div className="flex items-center gap-2">
-                              <AlertTriangle className="size-4 text-destructive" />
-                              <h3 className="font-medium">{prediction.region}</h3>
-                              <RiskBadge risk={prediction.risk} />
+                              <h3 className="font-medium">{p.region.name}</h3>
+                              <RiskBadge risk={p.riskLevel} />
                             </div>
                             <p className="text-sm text-muted-foreground mt-1">
-                              {prediction.disease} - Action required within {prediction.daysUntil * 24} hours
-                            </p>
-                            <p className="text-sm font-medium mt-2">{prediction.action}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-destructive">{prediction.daysUntil}d</p>
-                            <p className="text-xs text-muted-foreground">remaining</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-4">
-                          <Button size="sm" className="bg-destructive hover:bg-destructive/90">
-                            Take Immediate Action
-                          </Button>
-                          <Button variant="outline" size="sm">
-                            Contact Expert
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="upcoming" className="space-y-4">
-            <Card>
-              <CardContent className="p-6">
-                <div className="space-y-4">
-                  {sortedPredictions
-                    .filter((p) => p.daysUntil > 2)
-                    .map((prediction) => (
-                      <div
-                        key={prediction.id}
-                        className="p-4 rounded-lg border hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-medium">{prediction.region}</h3>
-                              <RiskBadge risk={prediction.risk} />
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">
-                              {prediction.disease} - Predicted: {prediction.predictedDate}
+                              {p.disease.name} — Predicted: {formatDate(p.predictedOnset)}
                             </p>
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className="text-sm font-medium">{prediction.confidence}%</p>
+                              <p className="text-sm font-medium">{p.confidence}%</p>
                               <p className="text-xs text-muted-foreground">confidence</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold">{prediction.daysUntil}d</p>
+                              <p className="text-lg font-bold">{daysUntil(p.predictedOnset)}d</p>
                               <p className="text-xs text-muted-foreground">until onset</p>
                             </div>
                           </div>
                         </div>
                       </div>
                     ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </>
+          )}
         </Tabs>
       </div>
     </DashboardLayout>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Prediction list (All tab)
+// ---------------------------------------------------------------------------
+
+function PredictionList({
+  items,
+  expandedId,
+  setExpandedId,
+}: {
+  items: Prediction[]
+  expandedId: string | null
+  setExpandedId: (id: string | null) => void
+}) {
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <ScrollArea className="h-[600px]">
+          <div className="divide-y">
+            {items.map((p) => {
+              const days = daysUntil(p.predictedOnset)
+              return (
+                <Collapsible
+                  key={p.id}
+                  open={expandedId === p.id}
+                  onOpenChange={(open) => setExpandedId(open ? p.id : null)}
+                >
+                  <div className="p-4 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-medium">{p.region.name}</h3>
+                          <RiskBadge risk={p.riskLevel} />
+                          <UrgencyBadge days={days} />
+                        </div>
+                        <p className="text-sm text-muted-foreground">
+                          {p.disease.name} — Predicted: {formatDate(p.predictedOnset)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="flex items-center gap-1 justify-end">
+                            <span className="text-sm font-medium">{p.confidence}%</span>
+                            <TrendIcon trend={p.trend} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">confidence</p>
+                        </div>
+                        <CollapsibleTrigger asChild>
+                          <Button variant="ghost" size="icon" className="size-8">
+                            <ChevronDown className={cn("size-4 transition-transform", expandedId === p.id && "rotate-180")} />
+                          </Button>
+                        </CollapsibleTrigger>
+                      </div>
+                    </div>
+
+                    <CollapsibleContent className="pt-4 space-y-4">
+                      <Separator />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium">Contributing Factors</h4>
+                          <ul className="space-y-2">
+                            {p.factors.map((f, i) => (
+                              <li key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <div className="size-1.5 rounded-full bg-primary" />
+                                {f}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium">Recommended Action</h4>
+                          <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
+                            <p className="text-sm">{p.action}</p>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="size-4 text-success" />
+                            <span className="text-muted-foreground">Model: {p.modelVersion}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 pt-2">
+                        <Button size="sm">
+                          Take Action <ArrowRight className="ml-2 size-4" />
+                        </Button>
+                        <Button variant="outline" size="sm">View Details</Button>
+                        <Button variant="ghost" size="sm">Dismiss</Button>
+                      </div>
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              )
+            })}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
   )
 }

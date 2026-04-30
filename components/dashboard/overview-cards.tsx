@@ -3,27 +3,18 @@
 import { AlertTriangle, Droplets, Thermometer, Wind } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
+import type { DashboardMetrics } from "@/lib/types"
 
 interface MetricCardProps {
   title: string
   value: string
   description: string
   icon: React.ReactNode
-  trend?: {
-    value: number
-    isPositive: boolean
-  }
+  trend?: { value: number; isPositive: boolean }
   variant?: "default" | "warning" | "danger"
 }
 
-function MetricCard({
-  title,
-  value,
-  description,
-  icon,
-  trend,
-  variant = "default",
-}: MetricCardProps) {
+function MetricCard({ title, value, description, icon, trend, variant = "default" }: MetricCardProps) {
   return (
     <Card
       className={cn(
@@ -42,9 +33,7 @@ function MetricCard({
                 <span
                   className={cn(
                     "text-xs font-semibold px-1.5 py-0.5 rounded-md",
-                    trend.isPositive
-                      ? "text-success bg-success/10"
-                      : "text-destructive bg-destructive/10"
+                    trend.isPositive ? "text-success bg-success/10" : "text-destructive bg-destructive/10"
                   )}
                 >
                   {trend.isPositive ? "+" : ""}
@@ -70,46 +59,46 @@ function MetricCard({
   )
 }
 
-const metrics = [
-  {
-    title: "Active Risk Zones",
-    value: "12",
-    description: "3 critical areas detected",
-    icon: <AlertTriangle className="size-5" />,
-    trend: { value: 8, isPositive: false },
-    variant: "danger" as const,
-  },
-  {
-    title: "Avg. Soil Moisture",
-    value: "42%",
-    description: "Optimal range: 40-60%",
-    icon: <Droplets className="size-5" />,
-    trend: { value: 5, isPositive: true },
-    variant: "default" as const,
-  },
-  {
-    title: "Temperature",
-    value: "28°C",
-    description: "Above seasonal average",
-    icon: <Thermometer className="size-5" />,
-    trend: { value: 2.5, isPositive: false },
-    variant: "warning" as const,
-  },
-  {
-    title: "Humidity",
-    value: "78%",
-    description: "High disease risk threshold",
-    icon: <Wind className="size-5" />,
-    trend: { value: 12, isPositive: false },
-    variant: "warning" as const,
-  },
-]
+interface OverviewCardsProps {
+  metrics?: DashboardMetrics
+}
 
-export function OverviewCards() {
+export function OverviewCards({ metrics }: OverviewCardsProps) {
+  const cards: MetricCardProps[] = [
+    {
+      title: "Active Risk Zones",
+      value: String(metrics?.activeRiskZones ?? "—"),
+      description: `${metrics?.criticalZones ?? 0} critical area${(metrics?.criticalZones ?? 0) !== 1 ? "s" : ""} detected`,
+      icon: <AlertTriangle className="size-5" />,
+      variant: (metrics?.criticalZones ?? 0) > 0 ? "danger" : "default",
+    },
+    {
+      title: "Avg. Soil Moisture",
+      value: metrics ? `${metrics.avgSoilMoisture}%` : "—",
+      description: "Optimal range: 40–60%",
+      icon: <Droplets className="size-5" />,
+      variant: "default",
+    },
+    {
+      title: "Temperature",
+      value: metrics ? `${metrics.avgTemperature}°C` : "—",
+      description: metrics && metrics.avgTemperature > 30 ? "Above seasonal average" : "Within seasonal range",
+      icon: <Thermometer className="size-5" />,
+      variant: metrics && metrics.avgTemperature > 30 ? "warning" : "default",
+    },
+    {
+      title: "Humidity",
+      value: metrics ? `${metrics.avgHumidity}%` : "—",
+      description: metrics && metrics.avgHumidity > 80 ? "High disease risk threshold" : "Moderate humidity",
+      icon: <Wind className="size-5" />,
+      variant: metrics && metrics.avgHumidity > 80 ? "warning" : "default",
+    },
+  ]
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-      {metrics.map((metric) => (
-        <MetricCard key={metric.title} {...metric} />
+      {cards.map((card) => (
+        <MetricCard key={card.title} {...card} />
       ))}
     </div>
   )
