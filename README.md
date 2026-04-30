@@ -1,5 +1,5 @@
 # CropGuard AI - Crop Disease Early Warning Platform
-
+big sam
 A production-grade, AI-powered crop disease prediction and early warning system built with Next.js 16, designed for farmers, agronomists, and agricultural organizations worldwide.
 
 ## Overview
