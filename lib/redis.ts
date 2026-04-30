@@ -51,7 +51,8 @@ export const cache = createCache()
 export const CACHE_KEYS = {
   predictions: (regionId: string) => `predictions:${regionId}`,
   weather: (regionId: string) => `weather:${regionId}`,
-  dashboard: (userId: string) => `dashboard:${userId}`,
+  weatherAll: "weather:all",
+  dashboard: "dashboard:global",
   regions: "regions:all",
 } as const
 

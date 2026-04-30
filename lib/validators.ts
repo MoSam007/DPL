@@ -6,7 +6,7 @@ export const paginationSchema = z.object({
 })
 
 export const regionFilterSchema = z.object({
-  regionId: z.string().cuid().optional(),
+  regionId: z.string().min(1).optional(),
   crop: z.string().optional(),
   riskLevel: z.enum(["low", "medium", "high", "critical"]).optional(),
 })
@@ -37,13 +37,13 @@ export const alertPreferenceSchema = z.object({
 
 export const uploadImageSchema = z.object({
   cropType: z.string().min(1, "Crop type is required"),
-  regionId: z.string().cuid("Invalid region"),
+  regionId: z.string().min(1, "Region is required").optional(),
   notes: z.string().max(1000).optional(),
 })
 
 export const uploadDataSchema = z.object({
   dataType: z.enum(["weather", "soil_moisture", "temperature", "custom"]),
-  regionId: z.string().cuid("Invalid region"),
+  regionId: z.string().min(1, "Region is required"),
 })
 
 export const loginSchema = z.object({
@@ -65,7 +65,7 @@ export const regionCreateSchema = z.object({
 })
 
 export const notificationMarkReadSchema = z.object({
-  notificationIds: z.array(z.string().cuid()).min(1).max(100),
+  notificationIds: z.array(z.string().min(1)).min(1).max(100),
 })
 
 export type PredictionQuery = z.infer<typeof predictionQuerySchema>

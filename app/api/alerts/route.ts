@@ -1,75 +1,89 @@
 import { NextRequest } from "next/server"
 import { alertQuerySchema } from "@/lib/validators"
-import { success, error, parseSearchParams } from "@/lib/api-utils"
-import type { Alert } from "@/lib/types"
+import { paginated, error, parseSearchParams } from "@/lib/api-utils"
+import { cache, CACHE_KEYS } from "@/lib/redis"
+import { REGIONS } from "@/lib/regions"
+import type { Alert, Prediction, WeatherSnapshot } from "@/lib/types"
 
 export const dynamic = "force-dynamic"
 
-const MOCK_ALERTS: Alert[] = [
-  {
-    id: "alert_1",
-    regionId: "reg_1",
-    region: { id: "reg_1", name: "Northern Plains", slug: "northern-plains", latitude: 28.6, longitude: 77.2 },
-    severity: "critical",
-    category: "disease",
-    title: "Late Blight Outbreak Detected",
-    message: "High confidence detection in Northern Plains. Immediate fungicide application recommended within 24 hours.",
-    actionRequired: true,
-    createdAt: "2026-04-24T09:50:00Z",
-  },
-  {
-    id: "alert_2",
-    regionId: "reg_4",
-    region: { id: "reg_4", name: "Southern Basin", slug: "southern-basin", latitude: 13.1, longitude: 80.3 },
-    severity: "critical",
-    category: "disease",
-    title: "Bacterial Wilt Spreading",
-    message: "Rapid spread detected in Southern Basin. Isolate affected plants and implement containment measures.",
-    actionRequired: true,
-    createdAt: "2026-04-24T09:35:00Z",
-  },
-  {
-    id: "alert_3",
-    regionId: "reg_6",
-    severity: "warning",
-    category: "weather",
-    title: "High Humidity Alert",
-    message: "Humidity levels exceeding 85% in River Delta region. Favorable conditions for fungal diseases.",
-    actionRequired: false,
-    createdAt: "2026-04-24T09:00:00Z",
-  },
-  {
-    id: "alert_4",
-    regionId: "reg_2",
-    region: { id: "reg_2", name: "Central Valley", slug: "central-valley", latitude: 26.8, longitude: 75.8 },
-    severity: "warning",
-    category: "disease",
-    title: "Powdery Mildew Risk Elevated",
-    message: "Conditions favorable for powdery mildew development in Central Valley. Monitor closely.",
-    actionRequired: false,
-    createdAt: "2026-04-24T08:00:00Z",
-  },
-  {
-    id: "alert_5",
-    severity: "info",
-    category: "system",
-    title: "Scheduled Drone Survey",
-    message: "Automated drone survey scheduled for Western Ridge tomorrow at 06:00 AM.",
-    actionRequired: false,
-    createdAt: "2026-04-24T07:00:00Z",
-  },
-  {
-    id: "alert_6",
-    regionId: "reg_3",
-    region: { id: "reg_3", name: "Eastern Hills", slug: "eastern-hills", latitude: 25.4, longitude: 81.8 },
-    severity: "success",
-    category: "disease",
-    title: "Disease Contained Successfully",
-    message: "Rust outbreak in Eastern Hills has been successfully contained following treatment.",
-    actionRequired: false,
-    createdAt: "2026-04-24T05:00:00Z",
-  },
-]
+// ---------------------------------------------------------------------------
+// Alert generators
+// ---------------------------------------------------------------------------
+
+function alertsFromPredictions(predictions: Prediction[]): Alert[] {
+  return predictions
+    .filter((p) => p.riskLevel === "high" || p.riskLevel === "critical")
+    .map((p) => ({
+      id: `alert_pred_${p.id}`,
+      regionId: p.regionId,
+      region: p.region,
+      severity: p.riskLevel === "critical" ? ("critical" as const) : ("warning" as const),
+      category: "disease" as const,
+      title: `${p.disease.name} Risk — ${p.region.name}`,
+      message: `${p.riskLevel.charAt(0).toUpperCase() + p.riskLevel.slice(1)} risk detected (${p.confidence}% confidence). ${p.action}`,
+      actionRequired: p.riskLevel === "critical",
+      createdAt: p.createdAt,
+    }))
+}
+
+function alertsFromWeather(snapshots: WeatherSnapshot[]): Alert[] {
+  const alerts: Alert[] = []
+
+  for (const w of snapshots) {
+    const region = REGIONS.find((r) => r.id === w.regionId)
+
+    if (w.humidity > 85) {
+      alerts.push({
+        id: `alert_weather_humidity_${w.regionId}_${new Date(w.recordedAt).getTime()}`,
+        regionId: w.regionId,
+        region,
+        severity: "warning",
+        category: "weather",
+        title: `High Humidity — ${region?.name ?? w.regionId}`,
+        message: `Humidity at ${w.humidity}% — conditions are favorable for fungal disease development. Increase monitoring frequency.`,
+        actionRequired: false,
+        createdAt: w.recordedAt,
+      })
+    }
+
+    if (w.rainfall > 40) {
+      alerts.push({
+        id: `alert_weather_rain_${w.regionId}_${new Date(w.recordedAt).getTime()}`,
+        regionId: w.regionId,
+        region,
+        severity: w.rainfall > 70 ? ("warning" as const) : ("info" as const),
+        category: "weather",
+        title: `Heavy Rainfall — ${region?.name ?? w.regionId}`,
+        message: `${w.rainfall}mm of rainfall forecasted — monitor for waterlogging, soil saturation, and increased disease pressure.`,
+        actionRequired: false,
+        createdAt: w.recordedAt,
+      })
+    }
+
+    if (w.temperature > 33) {
+      alerts.push({
+        id: `alert_weather_temp_${w.regionId}_${new Date(w.recordedAt).getTime()}`,
+        regionId: w.regionId,
+        region,
+        severity: "info",
+        category: "weather",
+        title: `High Temperature — ${region?.name ?? w.regionId}`,
+        message: `Temperature at ${w.temperature}°C — watch for heat stress and bacterial disease conditions. Ensure adequate irrigation.`,
+        actionRequired: false,
+        createdAt: w.recordedAt,
+      })
+    }
+  }
+
+  return alerts
+}
+
+// ---------------------------------------------------------------------------
+// Route
+// ---------------------------------------------------------------------------
+
+const SEVERITY_ORDER = { critical: 0, warning: 1, info: 2, success: 3 }
 
 export async function GET(request: NextRequest) {
   const params = parseSearchParams(request.url)
@@ -81,27 +95,44 @@ export async function GET(request: NextRequest) {
 
   const { page, pageSize, severity, category, actionRequired } = parsed.data
 
-  let filtered = [...MOCK_ALERTS]
-
-  if (severity) {
-    filtered = filtered.filter((a) => a.severity === severity)
-  }
-  if (category) {
-    filtered = filtered.filter((a) => a.category === category)
-  }
-  if (actionRequired !== undefined) {
-    filtered = filtered.filter((a) => a.actionRequired === actionRequired)
+  // Read predictions and weather from cache (populated by their respective routes)
+  const allPredictions: Prediction[] = []
+  for (const region of REGIONS) {
+    const cached = await cache.get(CACHE_KEYS.predictions(region.id))
+    if (cached) allPredictions.push(...(JSON.parse(cached) as Prediction[]))
   }
 
-  const total = filtered.length
-  const start = (page - 1) * pageSize
-  const paged = filtered.slice(start, start + pageSize)
+  const allWeather: WeatherSnapshot[] = []
+  for (const region of REGIONS) {
+    const cached = await cache.get(CACHE_KEYS.weather(region.id))
+    if (cached) {
+      const parsed = JSON.parse(cached)
+      // Handle both wrapped { success, data } and bare snapshot shapes
+      allWeather.push(("data" in parsed ? parsed.data : parsed) as WeatherSnapshot)
+    }
+  }
 
-  return success({
-    data: paged,
-    total,
-    page,
-    pageSize,
-    totalPages: Math.ceil(total / pageSize),
+  let alerts: Alert[] = [
+    ...alertsFromPredictions(allPredictions),
+    ...alertsFromWeather(allWeather),
+  ]
+
+  // Sort: critical → warning → info → success, then newest first within each tier
+  alerts.sort((a, b) => {
+    const severityDiff = (SEVERITY_ORDER[a.severity] ?? 4) - (SEVERITY_ORDER[b.severity] ?? 4)
+    return severityDiff !== 0
+      ? severityDiff
+      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
+
+  // Apply filters
+  if (severity) alerts = alerts.filter((a) => a.severity === severity)
+  if (category) alerts = alerts.filter((a) => a.category === category)
+  if (actionRequired !== undefined) alerts = alerts.filter((a) => a.actionRequired === actionRequired)
+
+  const total = alerts.length
+  const start = (page - 1) * pageSize
+  const paged = alerts.slice(start, start + pageSize)
+
+  return paginated(paged, total, page, pageSize)
 }
